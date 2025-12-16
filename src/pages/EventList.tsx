@@ -1,6 +1,6 @@
 import { useContext } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
-import { MapPin, User, LogOut, Calendar, Ticket } from 'lucide-react';
+import { MapPin, User, LogOut, Calendar } from 'lucide-react';
 import { useNavigate, Link } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
 import { getEvents, subscribeToEvent } from '../services/eventsService';
@@ -34,27 +34,18 @@ export function EventList() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
-      {/* Header */}
+    <div className="min-h-screen bg-gray-50 flex flex-col pb-20">
+      {/* Header - Simplified for Feed, Actions moved to BottomMenu */}
       <header className="bg-white shadow-sm sticky top-0 z-10">
         <div className="max-w-md mx-auto px-4 h-16 flex items-center justify-between">
           <h1 className="text-xl font-bold text-gray-900">Eventos</h1>
-          <div className="flex items-center gap-2">
-            <Link
-              to="/my-registrations"
-              className="p-2 text-gray-500 hover:text-indigo-600 transition-colors"
-              title="Meus Ingressos"
-            >
-              <Ticket size={24} />
-            </Link>
-            <button
+          <button
               onClick={signOut}
               className="p-2 text-gray-500 hover:text-red-500 transition-colors"
               title="Sair"
             >
               <LogOut size={24} />
-            </button>
-          </div>
+          </button>
         </div>
       </header>
 
@@ -81,9 +72,10 @@ export function EventList() {
         )}
 
         {!isLoading && !isError && events?.map((event) => (
-          <div
+          <Link
+            to={`/events/${event.id}`}
             key={event.id}
-            className="bg-white rounded-xl shadow-md overflow-hidden hover:shadow-lg transition-shadow border border-gray-100"
+            className="block bg-white rounded-xl shadow-md overflow-hidden hover:shadow-lg transition-shadow border border-gray-100"
           >
             <div className="p-5 space-y-3">
               <h2 className="text-lg font-bold text-gray-900 leading-tight">
@@ -120,7 +112,10 @@ export function EventList() {
 
               <div className="pt-3">
                 <button
-                  onClick={() => handleSubscribe(event.id)}
+                  onClick={(e) => {
+                      e.preventDefault(); // Prevent navigating to details
+                      handleSubscribe(event.id);
+                  }}
                   disabled={subscribeMutation.isPending}
                   className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2.5 px-4 rounded-lg transition-colors active:bg-indigo-800 disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center cursor-pointer"
                 >
@@ -132,7 +127,7 @@ export function EventList() {
                 </button>
               </div>
             </div>
-          </div>
+          </Link>
         ))}
       </main>
     </div>

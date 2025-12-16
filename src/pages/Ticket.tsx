@@ -1,12 +1,12 @@
 import { useContext } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import { ArrowLeft } from 'lucide-react';
-import { Link, useParams } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
 
 export function Ticket() {
   const { user } = useContext(AuthContext);
-  const { eventId } = useParams();
+  // const { eventId } = useParams();
 
   // If we don't have user info, we can't generate the valid QR.
   // Ideally, this page is protected so user should be there.

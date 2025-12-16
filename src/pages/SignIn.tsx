@@ -2,7 +2,7 @@ import { useContext, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { LogIn, User, Lock, Loader2 } from 'lucide-react';
+import { User, Lock, Loader2, Eye, EyeOff } from 'lucide-react';
 import { useNavigate, Link } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
 import { cn } from '../lib/utils';
@@ -19,6 +19,7 @@ export function SignIn() {
   const { signIn } = useContext(AuthContext);
   const navigate = useNavigate();
   const [authError, setAuthError] = useState<string | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
 
   const {
     register,
@@ -46,8 +47,8 @@ export function SignIn() {
     <div className="flex h-screen w-full items-center justify-center bg-gray-50 px-4">
       <div className="w-full max-w-sm space-y-8 rounded-2xl bg-white p-8 shadow-xl">
         <div className="text-center">
-          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-violet-100">
-            <LogIn className="h-6 w-6 text-violet-600" />
+          <div className="mx-auto w-32 h-32 bg-violet-100 rounded-full flex items-center justify-center mb-4 transition-transform duration-300 hover:scale-105">
+            <img src="/eventsync.png" alt="EventSync Logo" className="h-24 w-auto drop-shadow-sm" />
           </div>
           <h2 className="mt-4 text-3xl font-extrabold text-gray-900 tracking-tight">
             EventSync
@@ -85,15 +86,22 @@ export function SignIn() {
               </div>
               <input
                 id="password"
-                type="password"
+                type={showPassword ? "text" : "password"}
                 autoComplete="current-password"
                 className={cn(
-                  "block w-full rounded-lg border border-gray-300 py-3 pl-10 text-gray-900 placeholder-gray-500 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500 sm:text-sm transition-all",
+                  "block w-full rounded-lg border border-gray-300 py-3 pl-10 pr-10 text-gray-900 placeholder-gray-500 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500 sm:text-sm transition-all",
                    errors.password && "border-red-500 focus:border-red-500 focus:ring-red-500"
                 )}
                 placeholder="Senha"
                  {...register('password')}
               />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-gray-600 focus:outline-none"
+              >
+                {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+              </button>
                {errors.password && (
                 <p className="mt-1 text-xs text-red-500">{errors.password.message}</p>
               )}

@@ -1,11 +1,6 @@
 import { createContext, useCallback, useState, type ReactNode } from 'react';
 import api from '../lib/api';
-
-interface User {
-  id: string;
-  name: string;
-  email: string;
-}
+import type { User } from '../types';
 
 interface AuthState {
   token: string;

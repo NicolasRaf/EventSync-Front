@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { UserPlus, User, Lock, Mail, Loader2, ArrowLeft } from 'lucide-react';
+import { UserPlus, User, Lock, Mail, Loader2, ArrowLeft, Users, Calendar, Eye, EyeOff } from 'lucide-react';
 import { useNavigate, Link } from 'react-router-dom';
 import api from '../lib/api';
 import { cn } from '../lib/utils';
@@ -13,6 +13,7 @@ const signUpSchema = z.object({
   email: z.string().email('Digite um e-mail válido'),
   password: z.string().min(6, 'A senha deve ter pelo menos 6 caracteres'),
   confirmPassword: z.string(),
+  role: z.enum(['PARTICIPANT', 'ORGANIZER']),
 }).refine((data) => data.password === data.confirmPassword, {
   message: "As senhas não conferem",
   path: ["confirmPassword"],
@@ -23,14 +24,22 @@ type SignUpFormData = z.infer<typeof signUpSchema>;
 export function SignUp() {
   const navigate = useNavigate();
   const [requestError, setRequestError] = useState<string | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const {
     register,
     handleSubmit,
+    watch,
     formState: { errors, isSubmitting },
   } = useForm<SignUpFormData>({
     resolver: zodResolver(signUpSchema),
+    defaultValues: {
+      role: 'PARTICIPANT',
+    },
   });
+
+  const selectedRole = watch('role');
 
   async function handleSignUp(data: SignUpFormData) {
     setRequestError(null);
@@ -39,6 +48,7 @@ export function SignUp() {
         name: data.name,
         email: data.email,
         password: data.password,
+        role: data.role,
       });
       alert('Conta criada com sucesso!');
       navigate('/');
@@ -71,6 +81,35 @@ export function SignUp() {
 
         <form className="mt-8 space-y-6" onSubmit={handleSubmit(handleSignUp)}>
           <div className="space-y-4 rounded-md shadow-sm">
+            
+            {/* Role Selection */}
+            <div className="space-y-2 pb-2">
+              <label className="text-sm font-medium text-gray-700">Como você deseja usar o EventSync?</label>
+              <div className="grid grid-cols-2 gap-3">
+                <label className={cn(
+                  "flex flex-col items-center justify-center p-3 border-2 rounded-xl cursor-pointer transition-all hover:bg-gray-50",
+                  selectedRole === 'PARTICIPANT' 
+                    ? "border-violet-600 bg-violet-50 text-violet-700" 
+                    : "border-gray-200 text-gray-500"
+                )}>
+                  <input type="radio" value="PARTICIPANT" className="hidden" {...register('role')} />
+                  <Users className="w-6 h-6 mb-1" />
+                  <span className="text-xs font-bold">Participante</span>
+                </label>
+                
+                <label className={cn(
+                  "flex flex-col items-center justify-center p-3 border-2 rounded-xl cursor-pointer transition-all hover:bg-gray-50",
+                  selectedRole === 'ORGANIZER' 
+                    ? "border-violet-600 bg-violet-50 text-violet-700" 
+                    : "border-gray-200 text-gray-500"
+                )}>
+                  <input type="radio" value="ORGANIZER" className="hidden" {...register('role')} />
+                  <Calendar className="w-6 h-6 mb-1" />
+                  <span className="text-xs font-bold">Organizador</span>
+                </label>
+              </div>
+            </div>
+
             {/* Nome */}
             <div className="group relative">
                <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
@@ -119,14 +158,21 @@ export function SignUp() {
               </div>
               <input
                 id="password"
-                type="password"
+                type={showPassword ? "text" : "password"}
                 className={cn(
-                  "block w-full rounded-lg border border-gray-300 py-3 pl-10 text-gray-900 placeholder-gray-500 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500 sm:text-sm transition-all",
+                  "block w-full rounded-lg border border-gray-300 py-3 pl-10 pr-10 text-gray-900 placeholder-gray-500 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500 sm:text-sm transition-all",
                    errors.password && "border-red-500 focus:border-red-500 focus:ring-red-500"
                 )}
                 placeholder="Senha (min 6 caracteres)"
                  {...register('password')}
               />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-gray-600 focus:outline-none"
+              >
+                {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+              </button>
                {errors.password && (
                 <p className="mt-1 text-xs text-red-500">{errors.password.message}</p>
               )}
@@ -139,14 +185,21 @@ export function SignUp() {
               </div>
               <input
                 id="confirmPassword"
-                type="password"
+                type={showConfirmPassword ? "text" : "password"}
                 className={cn(
-                  "block w-full rounded-lg border border-gray-300 py-3 pl-10 text-gray-900 placeholder-gray-500 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500 sm:text-sm transition-all",
+                  "block w-full rounded-lg border border-gray-300 py-3 pl-10 pr-10 text-gray-900 placeholder-gray-500 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500 sm:text-sm transition-all",
                    errors.confirmPassword && "border-red-500 focus:border-red-500 focus:ring-red-500"
                 )}
                 placeholder="Confirmar Senha"
                  {...register('confirmPassword')}
               />
+              <button
+                type="button"
+                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-gray-600 focus:outline-none"
+              >
+                {showConfirmPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+              </button>
                {errors.confirmPassword && (
                 <p className="mt-1 text-xs text-red-500">{errors.confirmPassword.message}</p>
               )}
