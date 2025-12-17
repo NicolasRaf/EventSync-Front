@@ -24,6 +24,7 @@ interface CreateEventData {
   description: string;
   date: string;
   location: string;
+  locationType: 'ONLINE' | 'IN_PERSON';
 }
 
 export const createEvent = async (data: CreateEventData): Promise<void> => {
@@ -39,3 +40,21 @@ export const getEventDetails = async (eventId: string): Promise<EventDetails> =>
   const response = await api.get<EventDetails>(`/events/${eventId}`);
   return response.data;
 };
+
+export const updateRegistrationStatus = async (id: string, status: 'APPROVED' | 'REJECTED'): Promise<void> => {
+  const endpoint = status === 'APPROVED' ? 'approve' : 'reject';
+  await api.patch(`/registrations/${id}/${endpoint}`);
+};
+
+export const cancelRegistration = async (registrationId: string): Promise<void> => {
+  await api.delete(`/registrations/${registrationId}`);
+};
+
+export const deleteEvent = async (eventId: string): Promise<void> => {
+  await api.delete(`/events/${eventId}`);
+};
+
+export const updateEvent = async (eventId: string, data: Partial<CreateEventData>): Promise<void> => {
+  await api.put(`/events/${eventId}`, data);
+};
+

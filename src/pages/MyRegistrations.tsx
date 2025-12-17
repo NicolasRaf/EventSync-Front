@@ -1,13 +1,48 @@
-import { useQuery } from '@tanstack/react-query';
-import { Calendar, Ticket, ArrowLeft, Search } from 'lucide-react';
+import { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { Calendar, Ticket, ArrowLeft, Search, CheckCheck, Trash2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { getMyRegistrations } from '../services/eventsService';
+import { getMyRegistrations, cancelRegistration } from '../services/eventsService';
+import { ReviewModal } from '../components/reviews/ReviewModal';
+
 
 export function MyRegistrations() {
+
+  const queryClient = useQueryClient();
+  /* New state for review modal */
+  const [reviewModalOpen, setReviewModalOpen] = useState(false);
+  const [selectedEventForReview, setSelectedEventForReview] = useState<{id: string, title: string} | null>(null);
+
+  const handleOpenReview = (event: {id: string, title: string}) => {
+    setSelectedEventForReview(event);
+    setReviewModalOpen(true);
+  };
+
   const { data: registrations, isLoading, isError } = useQuery({
     queryKey: ['my-registrations'],
     queryFn: getMyRegistrations,
   });
+
+  const cancelMutation = useMutation({
+    mutationFn: cancelRegistration,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['my-registrations'] });
+      alert('Inscrição cancelada com sucesso!');
+    },
+    onError: (error) => {
+      console.error('Erro ao cancelar inscrição:', error);
+      alert('Não foi possível cancelar a inscrição. Tente novamente.');
+    }
+  });
+
+  const handleCancel = async (registrationId: string) => {
+    if (window.confirm('Tem certeza que deseja cancelar sua inscrição neste evento?')) {
+        cancelMutation.mutate(registrationId);
+    }
+  };
+
+
+
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
@@ -73,21 +108,93 @@ export function MyRegistrations() {
                     })}
                   </span>
                 </div>
+
+                {/* Status Badge */}
+                <div className="mt-2">
+                  {reg.status === 'PENDING' && (
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
+                      Aguardando Aprovação
+                    </span>
+                  )}
+                  {reg.status === 'APPROVED' && !reg.checkedInAt && (
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                      Confirmado / Aguardando Check-in
+                    </span>
+                  )}
+                  {!!reg.checkedInAt && (
+                     <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 gap-1">
+                        <CheckCheck size={12} />
+                        Check-in Realizado
+                     </span>
+                  )}
+                  {reg.status === 'REJECTED' && (
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                      Inscrição Recusada
+                    </span>
+                  )}
+                </div>
+
+                <div className="flex gap-2 mt-2">
+                    {/* Avaliar Button - Strictly only if checked-in */}
+                    {!!reg.checkedInAt && (!reg.event.reviews || reg.event.reviews.length === 0) && (
+                        <button
+                            onClick={() => handleOpenReview(reg.event)}
+                            className="text-sm font-bold text-yellow-600 border border-yellow-400 rounded-lg px-3 py-1.5 hover:bg-yellow-50 transition-colors flex items-center justify-center w-fit"
+                        >
+                            Avaliar Evento
+                        </button>
+                    )}
+                    {!!reg.checkedInAt && (reg.event.reviews && reg.event.reviews.length > 0) && (
+                         <span className="text-sm font-medium text-green-600 border border-green-200 bg-green-50 rounded-lg px-3 py-1.5 flex items-center justify-center w-fit cursor-default">
+                             Avaliado
+                         </span>
+                    )}
+
+                     {/* Cancel Button - Only for Pending or Approved/Confirmed (not checked-in yet, assuming) */}
+                     {/* User request: "Em cada card de inscrição...". Usually strict logic needed, but let's default to allowing cancel for Active (Pending/Approved) */}
+                     {/* Logic: Can cancel if NOT checked-in and NOT rejected? Or simple trash icon always? */}
+                     {/* Let's follow "Em cada card". But logically makes sense only for future events. */}
+                     {/* Assuming we can cancel unless rejected/past */}
+                     {(reg.status === 'PENDING' || reg.status === 'APPROVED') && !reg.checkedInAt && (
+                         <button
+                            onClick={() => handleCancel(reg.id)}
+                            className="text-sm font-bold text-red-600 border border-red-200 rounded-lg px-3 py-1.5 hover:bg-red-50 hover:text-red-800 transition-colors flex items-center justify-center gap-1 w-fit"
+                            title="Cancelar Inscrição"
+                            disabled={cancelMutation.isPending}
+                         >
+                            <Trash2 size={16} />
+                            {cancelMutation.isPending ? 'Cancelando...' : 'Cancelar'}
+                         </button>
+                     )}
+                </div>
               </div>
 
-              <div className="flex flex-col justify-center">
-                <Link
-                  to={`/ticket/${reg.event.id}`}
-                  className="bg-indigo-50 text-indigo-700 hover:bg-indigo-100 p-3 rounded-lg transition-colors flex flex-col items-center gap-1 min-w-[80px]"
-                >
-                  <Ticket size={24} />
-                  <span className="text-xs font-bold">QR Code</span>
-                </Link>
-              </div>
+              {/* Show Ticket Button for Approved/CheckedIn */}
+              {(reg.status === 'APPROVED' || !!reg.checkedInAt) && (
+                  <div className="flex flex-col justify-center">
+                    <Link
+                      to={`/ticket/${reg.event.id}`}
+                      className="bg-indigo-50 text-indigo-700 hover:bg-indigo-100 p-3 rounded-lg transition-colors flex flex-col items-center gap-1 min-w-[80px]"
+                    >
+                      <Ticket size={24} />
+                      <span className="text-xs font-bold">QR Code</span>
+                    </Link>
+                  </div>
+              )}
             </div>
           </div>
         ))}
       </main>
+
+      {/* Review Modal */}
+      {selectedEventForReview && (
+        <ReviewModal
+            isOpen={reviewModalOpen}
+            onClose={() => setReviewModalOpen(false)}
+            eventId={selectedEventForReview.id}
+            eventTitle={selectedEventForReview.title}
+        />
+      )}
     </div>
   );
 }

@@ -70,6 +70,14 @@ export const router: ReturnType<typeof createBrowserRouter> = createBrowserRoute
         ),
       },
       {
+        path: '/events/:eventId/edit',
+        element: (
+          <OrganizerRoute>
+            <CreateEvent />
+          </OrganizerRoute>
+        ),
+      },
+      {
         path: '/events/:eventId/registrations',
         element: (
           <OrganizerRoute>

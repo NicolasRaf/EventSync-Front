@@ -1,10 +1,12 @@
 import { useParams, Link } from 'react-router-dom';
 import { useQuery, useMutation } from '@tanstack/react-query';
-import { ArrowLeft, Calendar, MapPin, Ticket, Loader2, UserPlus, Check } from 'lucide-react';
+import { ArrowLeft, Calendar, MapPin, Ticket, Loader2, UserPlus, Check, Video, Edit, Trash2 } from 'lucide-react';
 import { useContext, useState } from 'react';
-import { getEventDetails, subscribeToEvent, getMyRegistrations } from '../services/eventsService';
+import { getEventDetails, subscribeToEvent, getMyRegistrations, deleteEvent } from '../services/eventsService';
 import { sendFriendRequest } from '../services/socialService';
 import { AuthContext } from '../context/AuthContext';
+import { FeedbackModal } from '../components/ui/FeedbackModal';
+import { useNavigate } from 'react-router-dom';
 
 function formatEventDate(dateString: string): string {
   if (!dateString) return 'Data a definir';
@@ -32,6 +34,7 @@ function getInitials(name: string) {
 
 export function EventDetails() {
   const { eventId } = useParams();
+  const navigate = useNavigate();
   const { user } = useContext(AuthContext);
   const [sentRequests, setSentRequests] = useState<Set<string>>(new Set());
 
@@ -42,6 +45,11 @@ export function EventDetails() {
     enabled: !!eventId,
   });
 
+  console.log('DEBUG: User:', user);
+  console.log('DEBUG: Event Organizer:', event?.organizer);
+  console.log('DEBUG: Comparison ID:', user?.id === event?.organizer?.id);
+  console.log('DEBUG: Comparison Email:', user?.email === event?.organizer?.email);
+
   // Fetch User Registrations to check if already registered
   const { data: myRegistrations } = useQuery({
     queryKey: ['my-registrations'],
@@ -49,17 +57,44 @@ export function EventDetails() {
   });
 
   const isRegistered = myRegistrations?.some((reg) => reg.event.id === eventId);
+  // Organizer check: strict comparison of IDs. 
+  // Note: Ensure both IDs are strings and defined before comparing.
+  const isOwner = user?.id && event?.organizer?.id ? user.id === event.organizer.id : false;
+
+  // Feedback Modal State
+  const [feedback, setFeedback] = useState<{
+    isOpen: boolean;
+    type: 'success' | 'error' | 'info';
+    title: string;
+    message: string;
+    onAction?: () => void;
+  }>({
+    isOpen: false,
+    type: 'info',
+    title: '',
+    message: '',
+  });
+
+  const closeFeedback = () => setFeedback(prev => ({ ...prev, isOpen: false }));
+
+  const showFeedback = (type: 'success' | 'error' | 'info', title: string, message: string, onAction?: () => void) => {
+    setFeedback({ isOpen: true, type, title, message, onAction });
+  };
 
   const subscribeMutation = useMutation({
     mutationFn: subscribeToEvent,
     onSuccess: () => {
-      window.location.href = `/ticket/${eventId}`;
+      showFeedback('success', 'Inscrição Confirmada!', 'Você foi inscrito com sucesso. Verifique seu ingresso.', () => {
+         window.location.href = `/ticket/${eventId}`;
+      });
     },
     onError: (error: any) => {
       if (error?.response?.status === 409 || error?.message?.includes('registered')) {
-        alert('Você já está inscrito neste evento.');
+        showFeedback('info', 'Já Inscrito', 'Você já está participando deste evento.');
+      } else if (error?.response?.status === 400 && error?.response?.data?.message?.includes('Organizers cannot register')) {
+        showFeedback('error', 'Ação Inválida', 'Organizadores não podem se inscrever no próprio evento.');
       } else {
-        alert('Erro ao realizar inscrição.');
+        showFeedback('error', 'Erro na Inscrição', 'Não foi possível completar sua inscrição. Tente novamente.');
       }
     },
   });
@@ -68,11 +103,13 @@ export function EventDetails() {
     mutationFn: sendFriendRequest,
     onSuccess: (_, userId) => {
         setSentRequests(prev => new Set(prev).add(userId));
+        // Optional: show toast instead of modal for minor actions, but using modal as requested for consistency or keeping silent
+        // For now, keeping silent or small toast is better for friend request, but let's use modal for error at least.
     },
     onError: (error: any) => {
         console.error(error);
         const message = error.response?.data?.message || "Erro ao enviar solicitação.";
-        alert(message);
+        showFeedback('error', 'Erro', message);
     }
   });
 
@@ -80,6 +117,22 @@ export function EventDetails() {
       if (sentRequests.has(userId)) return;
       friendRequestMutation.mutate(userId);
   }
+
+  const handleDeleteEvent = async () => {
+    if (!window.confirm("Tem certeza que deseja cancelar este evento? Isso removerá todas as inscrições.\n\nEssa ação não pode ser desfeita.")) {
+      return;
+    }
+
+    try {
+      await deleteEvent(eventId!);
+      alert("Evento cancelado com sucesso.");
+      navigate('/events');
+    } catch (error: any) {
+      console.error(error);
+      const message = error.response?.data?.message || 'Erro ao cancelar evento.';
+      showFeedback('error', 'Erro', message);
+    }
+  };
 
   if (isLoadingEvent) {
     return (
@@ -102,6 +155,14 @@ export function EventDetails() {
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col pb-24">
+      <FeedbackModal
+        isOpen={feedback.isOpen}
+        onClose={closeFeedback}
+        type={feedback.type}
+        title={feedback.title}
+        message={feedback.message}
+        onAction={feedback.onAction}
+      />
       {/* Hero Header */}
       <div className="bg-white shadow-sm sticky top-0 z-10 p-4">
         <div className="gap-3 max-w-md mx-auto flex items-center">
@@ -139,11 +200,22 @@ export function EventDetails() {
 
             <div className="flex items-center gap-3 text-gray-600">
               <div className="bg-indigo-50 p-2 rounded-lg text-indigo-600">
-                <MapPin size={20} />
+                {event.locationType === 'ONLINE' ? <Video size={20} /> : <MapPin size={20} />}
               </div>
               <div>
-                <p className="text-xs text-gray-400 font-bold uppercase tracking-wide">Local</p>
-                <p className="font-medium">{event.location}</p>
+                <p className="text-xs text-gray-400 font-bold uppercase tracking-wide">
+                    {event.locationType === 'ONLINE' ? 'Onde' : 'Local'}
+                </p>
+                {event.locationType === 'ONLINE' ? (
+                     <p className="font-medium text-indigo-600 underline">
+                        {isRegistered || isOwner 
+                            ? <a href="#" onClick={(e) => e.preventDefault()}>Link da transmissão</a> 
+                            : 'Link disponível após inscrição'
+                        }
+                     </p>
+                ) : (
+                    <p className="font-medium">{event.location}</p>
+                )}
               </div>
             </div>
           </div>
@@ -215,9 +287,42 @@ export function EventDetails() {
       </main>
 
       {/* Sticky Action Footer */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-4 z-20">
+      <div className="fixed bottom-16 left-0 right-0 bg-white border-t border-gray-200 p-4 z-20">
         <div className="max-w-md mx-auto">
-          {isRegistered ? (
+          {/* 
+            Prioritization Logic: 
+            1. If Owner -> Show "You are organizer" (Disabled)
+            2. If Registered -> Show "View Ticket"
+            3. Else -> Show "Subscribe"
+          */}
+          {isOwner ? (
+             <div className="flex gap-3">
+               <Link
+                 to={`/events/${eventId}/registrations`}
+                 className="flex-1 bg-white border-2 border-indigo-600 text-indigo-700 font-bold py-3.5 rounded-xl hover:bg-indigo-50 transition-colors shadow-lg active:scale-[0.98] flex items-center justify-center gap-2"
+               >
+                 <Ticket size={20} />
+                 Gerenciar
+               </Link>
+               
+               {/* Edit Button (Placeholder link) */}
+               <Link
+                 to={`/events/${eventId}/edit`} // Assuming edit page exists or will exist
+                 className="bg-gray-100 text-gray-700 p-3.5 rounded-xl hover:bg-gray-200 transition-colors shadow-sm active:scale-[0.98] flex items-center justify-center"
+                 title="Editar Evento"
+               >
+                 <Edit size={20} />
+               </Link>
+
+               <button
+                 onClick={handleDeleteEvent}
+                 className="bg-red-50 text-red-600 p-3.5 rounded-xl hover:bg-red-100 transition-colors shadow-sm active:scale-[0.98] flex items-center justify-center border border-red-100"
+                 title="Cancelar Evento"
+               >
+                 <Trash2 size={20} />
+               </button>
+             </div>
+          ) : isRegistered ? (
             <Link
               to={`/ticket/${eventId}`}
               className="w-full bg-green-600 text-white font-bold py-3.5 rounded-xl hover:bg-green-700 transition-colors shadow-lg active:scale-[0.98] flex items-center justify-center gap-2"

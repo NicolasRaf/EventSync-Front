@@ -1,5 +1,5 @@
 import api from '../lib/api';
-import type { Friend, FriendRequest } from '../types';
+import type { Friend, FriendRequest, Message } from '../types';
 
 export const sendFriendRequest = async (userId: string): Promise<void> => {
   await api.post(`/users/${userId}/friend-request`);
@@ -17,4 +17,13 @@ export const getFriends = async (): Promise<Friend[]> => {
 
 export const respondToFriendRequest = async (requestId: string, accept: boolean): Promise<void> => {
   await api.put(`/friends/requests/${requestId}`, { accept });
+};
+
+export const sendMessage = async (receiverId: string, content: string): Promise<void> => {
+  await api.post('/messages', { receiverId, content });
+};
+
+export const getMyMessages = async (): Promise<Message[]> => {
+  const response = await api.get<Message[]>('/messages');
+  return response.data;
 };
